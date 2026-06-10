@@ -2,11 +2,23 @@
  * ═══════════════════════════════════════════════════════
  *              🛡️ نظام الحماية - Gogo Bot
  *         فلترة الكلمات + فحص الصور والستيكرات
+ *   الحالة محفوظة في global.db.groups[chatId].protection
  * ═══════════════════════════════════════════════════════
  */
 
-// ─── حالة الحماية لكل جروب ───
-const protectedGroups = new Map();
+// ─── تخزين عدد التحذيرات والسجل (منفصل عن قاعدة البيانات) ───
+const protState = new Map();
+
+function getState(chatId) {
+  if (!protState.has(chatId)) {
+    protState.set(chatId, { warnCount: {}, log: [] });
+  }
+  return protState.get(chatId);
+}
+
+function isEnabled(chatId) {
+  return global.db?.groups?.[chatId]?.protection === true;
+}
 
 // ═══════════════════════════════════════════════════════
 //                  📋 قوائم الكلمات
@@ -96,29 +108,28 @@ async function checkMedia(m) {
 
     if (msg.stickerMessage) {
       const sticker = msg.stickerMessage;
-      if (sticker.isAnimated) {
-        const fileSize = sticker.fileLength || 0;
-        if (fileSize > 500 * 1024) return { suspicious: true, reason: 'ستيكر بحجم غير طبيعي' };
-      }
+      if (sticker.isAnimated && (sticker.fileLength || 0) > 500 * 1024)
+        return { suspicious: true, reason: 'ستيكر بحجم غير طبيعي' };
       const suspiciousEmojis = ['🔞','💋','🍑','🍆','👙'];
-      for (const cat of (sticker.categories || [])) {
-        if (suspiciousEmojis.includes(cat)) return { suspicious: true, reason: 'ستيكر يحتوي محتوى مشبوه' };
-      }
+      for (const cat of (sticker.categories || []))
+        if (suspiciousEmojis.includes(cat))
+          return { suspicious: true, reason: 'ستيكر يحتوي محتوى مشبوه' };
     }
 
     if (msg.imageMessage) {
-      const img = msg.imageMessage;
-      const captionCheck = checkText(img.caption || '');
-      if (captionCheck?.type === 'banned') return { suspicious: true, reason: `كابشن محظور: ${captionCheck.word}` };
-      const url = img.url || '';
-      for (const site of ['xvideos','pornhub','xnxx','xhamster']) {
-        if (url.includes(site)) return { suspicious: true, reason: 'صورة من موقع إباحي' };
-      }
+      const captionCheck = checkText(msg.imageMessage.caption || '');
+      if (captionCheck?.type === 'banned')
+        return { suspicious: true, reason: `كابشن محظور: ${captionCheck.word}` };
+      const url = msg.imageMessage.url || '';
+      for (const site of ['xvideos','pornhub','xnxx','xhamster'])
+        if (url.includes(site))
+          return { suspicious: true, reason: 'صورة من موقع إباحي' };
     }
 
     if (msg.videoMessage) {
       const captionCheck = checkText(msg.videoMessage.caption || '');
-      if (captionCheck?.type === 'banned') return { suspicious: true, reason: `كابشن فيديو محظور: ${captionCheck.word}` };
+      if (captionCheck?.type === 'banned')
+        return { suspicious: true, reason: `كابشن فيديو محظور: ${captionCheck.word}` };
     }
   } catch {}
   return null;
@@ -135,9 +146,9 @@ async function kickMember(conn, chatId, jid) {
   } catch { return false; }
 }
 
-function logEvent(prot, jid, type, detail) {
-  prot.log.push({ jid, type, detail, time: new Date().toLocaleString('ar-EG') });
-  if (prot.log.length > 50) prot.log.shift();
+function logEvent(state, jid, type, detail) {
+  state.log.push({ jid, type, detail, time: new Date().toLocaleString('ar-EG') });
+  if (state.log.length > 50) state.log.shift();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -148,13 +159,13 @@ async function processMessage(m, conn) {
   const senderId = m.sender;
 
   if (!chatId.endsWith('@g.us')) return;
-  if (!protectedGroups.has(chatId)) return;
+  if (!isEnabled(chatId)) return;
   if (m.isOwner || m.isAdmin || m.isBotAdmin) return;
 
-  const prot = protectedGroups.get(chatId);
-  const body = (m.body || '').trim();
-  const msg  = m.message;
-  const name = senderId.split('@')[0];
+  const state = getState(chatId);
+  const body  = (m.body || '').trim();
+  const msg   = m.message;
+  const name  = senderId.split('@')[0];
 
   // ─── فحص النص ───
   if (body) {
@@ -163,7 +174,7 @@ async function processMessage(m, conn) {
     if (result?.type === 'banned') {
       await deleteMessage(conn, chatId, m);
       const kicked = await kickMember(conn, chatId, senderId);
-      logEvent(prot, senderId, 'kick', `كلمة محظورة: "${result.word}"`);
+      logEvent(state, senderId, 'kick', `كلمة محظورة: "${result.word}"`);
       await conn.sendMessage(chatId, {
         text:
           `🚨 *تم اكتشاف محتوى مخالف!*\n\n` +
@@ -177,15 +188,15 @@ async function processMessage(m, conn) {
     }
 
     if (result?.type === 'warn') {
-      prot.warnCount[senderId] = (prot.warnCount[senderId] || 0) + 1;
-      const warns = prot.warnCount[senderId];
-      logEvent(prot, senderId, 'warn', `"${result.word}" (${warns}/3)`);
+      state.warnCount[senderId] = (state.warnCount[senderId] || 0) + 1;
+      const warns = state.warnCount[senderId];
+      logEvent(state, senderId, 'warn', `"${result.word}" (${warns}/3)`);
 
       if (warns >= 3) {
         await deleteMessage(conn, chatId, m);
         const kicked = await kickMember(conn, chatId, senderId);
-        prot.warnCount[senderId] = 0;
-        logEvent(prot, senderId, 'kick', 'تجاوز 3 تحذيرات');
+        state.warnCount[senderId] = 0;
+        logEvent(state, senderId, 'kick', 'تجاوز 3 تحذيرات');
         await conn.sendMessage(chatId, {
           text: `🚨 *@${name} تم طرده بعد 3 تحذيرات!*\n${kicked ? '👢 تم الطرد' : '⚠️ تعذّر الطرد'}`,
           mentions: [senderId]
@@ -210,7 +221,7 @@ async function processMessage(m, conn) {
     if (mediaResult?.suspicious) {
       await deleteMessage(conn, chatId, m);
       const kicked = await kickMember(conn, chatId, senderId);
-      logEvent(prot, senderId, 'media', mediaResult.reason);
+      logEvent(state, senderId, 'media', mediaResult.reason);
       const mediaType = msg.stickerMessage ? 'ستيكر' : msg.videoMessage ? 'فيديو' : 'صورة';
       await conn.sendMessage(chatId, {
         text:
@@ -226,80 +237,86 @@ async function processMessage(m, conn) {
 }
 
 // ═══════════════════════════════════════════════════════
-//                    الهاندلر الرئيسي (الأوامر)
+//           الهاندلر الرئيسي — أوامر الحماية
 // ═══════════════════════════════════════════════════════
-const handler = async (m, { conn, command }) => {
+const handler = async (m, { conn, args }) => {
   const chatId = m.chat;
+  const sub    = (args?.[0] || '').trim(); // الكلمة بعد "حماية/حمايه"
 
   if (!chatId.endsWith('@g.us'))
     return m.reply('🚫 هذا الأمر للجروبات فقط!');
 
   if (!m.isAdmin && !m.isOwner)
-    return m.reply('🚫 *هذا الأمر للأدمن فقط!*');
+    return m.reply('🚫 هذا الأمر للأدمن فقط!');
 
   // ─── تفعيل ───
-  if (command === 'حماية تشغيل') {
-    if (protectedGroups.has(chatId))
-      return m.reply('✅ الحماية مفعّلة بالفعل!');
+  if (['تشغيل','on'].includes(sub)) {
+    if (isEnabled(chatId))
+      return m.reply('✅ الحماية مفعّلة بالفعل!\nللإيقاف: *.حماية إيقاف*');
 
-    protectedGroups.set(chatId, { enabled: true, warnCount: {}, log: [] });
+    global.db.groups[chatId].protection = true;
+    getState(chatId); // هيّئ الحالة
     return m.reply(
       `🛡️ *تم تفعيل نظام الحماية!*\n\n` +
-      `✅ فلترة الكلمات المحظورة: مفعّل\n` +
-      `✅ فحص الصور والفيديو: مفعّل\n` +
-      `✅ فحص الستيكرات: مفعّل\n\n` +
+      `✅ فلترة الكلمات المحظورة\n` +
+      `✅ فحص الصور والفيديو\n` +
+      `✅ فحص الستيكرات\n\n` +
       `⚠️ أي محتوى مخالف سيتم:\n` +
-      `   🗑️ حذف الرسالة فوراً\n` +
+      `   🗑️ حذف الرسالة\n` +
       `   👢 طرد العضو\n\n` +
       `📌 للإيقاف: *.حماية إيقاف*`
     );
   }
 
   // ─── إيقاف ───
-  if (command === 'حماية إيقاف') {
-    if (!protectedGroups.has(chatId))
-      return m.reply('⚠️ الحماية غير مفعّلة أصلاً.');
-    protectedGroups.delete(chatId);
+  if (['إيقاف','ايقاف','off'].includes(sub)) {
+    if (!isEnabled(chatId))
+      return m.reply('⚠️ الحماية غير مفعّلة أصلاً.\nللتفعيل: *.حماية تشغيل*');
+
+    global.db.groups[chatId].protection = false;
     return m.reply('🔓 *تم إيقاف نظام الحماية*');
   }
 
   // ─── السجل ───
-  if (command === 'حماية سجل') {
-    if (!protectedGroups.has(chatId))
-      return m.reply('⚠️ الحماية غير مفعّلة.');
-    const prot = protectedGroups.get(chatId);
-    if (prot.log.length === 0)
+  if (['سجل','log'].includes(sub)) {
+    if (!isEnabled(chatId))
+      return m.reply('⚠️ الحماية غير مفعّلة. فعّلها أولاً بـ *.حماية تشغيل*');
+
+    const state = getState(chatId);
+    if (state.log.length === 0)
       return m.reply('📋 السجل فارغ حتى الآن.');
 
-    let logMsg = `📋 *سجل الحماية (آخر ${Math.min(prot.log.length, 10)} حدث)*\n\n`;
-    for (const entry of prot.log.slice(-10).reverse()) {
+    let logMsg = `📋 *سجل الحماية (آخر ${Math.min(state.log.length, 10)} حدث)*\n\n`;
+    for (const entry of state.log.slice(-10).reverse()) {
       const icon = entry.type === 'kick' ? '👢' : entry.type === 'media' ? '🖼️' : '⚠️';
       logMsg += `${icon} @${entry.jid.split('@')[0]}\n   📌 ${entry.detail}\n   🕐 ${entry.time}\n\n`;
     }
     return m.reply(logMsg);
   }
 
-  // ─── حالة الحماية ───
-  const status = protectedGroups.has(chatId);
+  // ─── الحالة الافتراضية ───
+  const active = isEnabled(chatId);
   return m.reply(
-    `🛡️ *حالة الحماية*\n\n` +
-    `${status ? '✅ مفعّلة' : '❌ موقوفة'}\n\n` +
+    `🛡️ *نظام الحماية*\n\n` +
+    `الحالة: ${active ? '✅ مفعّل' : '❌ موقوف'}\n\n` +
     `📌 الأوامر:\n` +
     `▫️ *.حماية تشغيل* — تفعيل\n` +
     `▫️ *.حماية إيقاف* — تعطيل\n` +
-    `▫️ *.حماية سجل* — عرض السجل`
+    `▫️ *.حماية سجل* — عرض السجل\n\n` +
+    `💡 أو استخدم: *.تفعيل تشغيل_الحمايه*`
   );
 };
 
 // ═══════════════════════════════════════════════════════
-//         handler.before — يشتغل تلقائياً على كل رسالة
+//     handler.before — يشتغل تلقائياً على كل رسالة
 // ═══════════════════════════════════════════════════════
 handler.before = async (m, { conn }) => {
   await processMessage(m, conn);
 };
 
-handler.command  = ['حماية', 'حماية تشغيل', 'حماية إيقاف', 'حماية سجل'];
-handler.usage    = ['حماية', 'حماية تشغيل', 'حماية إيقاف', 'حماية سجل'];
+// يقبل كلا الإملاءين: حماية و حمايه
+handler.command  = /^حماي[هة]/i;
+handler.usage    = ['حماية تشغيل', 'حماية إيقاف', 'حماية سجل'];
 handler.category = 'admin';
 handler.group    = true;
 
