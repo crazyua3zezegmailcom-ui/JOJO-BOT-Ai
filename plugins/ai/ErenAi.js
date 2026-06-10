@@ -43,6 +43,7 @@ const context = (jid, img) => ({
     externalAdReply: {
         title: "𝐀𝐓𝐓𝐀𝐂𝐊 𝐎𝐍 𝐓𝐈𝐓𝐀𝐍 💢 | 𝐑𝐮𝐦𝐛𝐥𝐢𝐧𝐠",
         body: "𝙵𝚁𝙴𝙴𝙳𝙾𝙼 ~ ☆ 𝙸'𝚕𝚕 𝚔𝚎𝚎𝚙 𝚖𝚘𝚟𝚒𝚗𝚐 𝚏𝚘𝚛𝚠𝚊𝚛𝚍",
+        thumbnailUrl: img,
         sourceUrl: '',
         mediaType: 1,
         renderLargerThumbnail: true

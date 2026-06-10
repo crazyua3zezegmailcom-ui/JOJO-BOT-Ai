@@ -43,6 +43,7 @@ const context = (jid, img) => ({
     externalAdReply: {
         title: "𝐍𝐀𝐑𝐔𝐓𝐎 🍥 | 𝐀𝐤𝐚𝐭𝐬𝐮𝐤𝐢 𝐋𝐞𝐠𝐞𝐧𝐝",
         body: "𝙷𝚖... 𝚒𝚗𝚝𝚎𝚛𝚎𝚜𝚝𝚒𝚗𝚐 ~ ☆ 𝙸'𝚖 𝚗𝚘𝚝 𝚒𝚗𝚝𝚎𝚛𝚎𝚜𝚝𝚎𝚍",
+        thumbnailUrl: img,
         sourceUrl: '',
         mediaType: 1,
         renderLargerThumbnail: true

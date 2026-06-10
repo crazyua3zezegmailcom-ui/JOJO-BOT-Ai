@@ -44,6 +44,7 @@ const context = (jid, img) => ({
     externalAdReply: {
         title: "𝐌𝐀𝐑𝐈𝐍 𝐊𝐈𝐓𝐀𝐆𝐀𝐖𝐀 💛 | 𝐂𝐨𝐬𝐩𝐥𝐚𝐲𝐞𝐫 𝐆𝐢𝐫𝐥",
         body: "𝚆𝚎𝚕𝚌𝚘𝚖𝚎 𝚝𝚘 𝚖𝚢 𝚠𝚘𝚛𝚕𝚍 ~ ☆ 𝙻𝚎𝚝'𝚜 𝚑𝚊𝚟𝚎 𝚏𝚞𝚗 𝚝𝚘𝚐𝚎𝚝𝚑𝚎𝚛 (⁠◕⁠ᴗ⁠◕⁠✿⁠)",
+        thumbnailUrl: img,
         sourceUrl: '',
         mediaType: 1,
         renderLargerThumbnail: true

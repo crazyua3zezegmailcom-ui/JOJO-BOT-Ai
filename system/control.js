@@ -99,16 +99,20 @@ const access = async (msg, checkType, time) => {
     };
     
     if (conn && messages[checkType]) {
-        await conn.msgUrl(msg.chat, messages[checkType], {
-            img: "https://i.postimg.cc/VLdc7Tsp/IMG-20260511-WA0360.jpg",
-            title: "𝐀𝐥𝐞𝐫𝐭𝐬 | 𝐖𝐚𝐫𝐧𝐢𝐧𝐠𝐬",
-            body: "𝐵𝑜𝑡 𝑎𝑙𝑒𝑟𝑡𝑠: 𝑅𝑒𝑎𝑑 𝑡𝒉𝑒 𝑚𝑒𝑠𝑠𝑎𝑔𝑒 𝑡𝑜 𝑙𝑒𝑎𝑟𝑛 𝑚𝑜𝑟𝑒",
-            newsletter: {
-                name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
-                jid: '120363428186936884@newsletter'
-            },
-            big: false
-        }, quoted);
+        try {
+            await conn.msgUrl(msg.chat, messages[checkType], {
+                img: "https://i.postimg.cc/VLdc7Tsp/IMG-20260511-WA0360.jpg",
+                title: "𝐀𝐥𝐞𝐫𝐭𝐬 | 𝐖𝐚𝐫𝐧𝐢𝐧𝐠𝐬",
+                body: "𝐵𝑜𝑡 𝑎𝑙𝑒𝑟𝑡𝑠: 𝑅𝑒𝑎𝑑 𝑡𝒉𝑒 𝑚𝑒𝑠𝑠𝑎𝑔𝑒 𝑡𝑜 𝑙𝑒𝑎𝑟𝑛 𝑚𝑜𝑟𝑒",
+                newsletter: {
+                    name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
+                    jid: '120363428186936884@newsletter'
+                },
+                big: false
+            }, quoted);
+        } catch {
+            await conn.sendMessage(msg.chat, { text: messages[checkType] }, { quoted });
+        }
         return false;  
     }
     return null;  

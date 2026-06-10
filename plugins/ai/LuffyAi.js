@@ -43,6 +43,7 @@ const context = (jid, img) => ({
     externalAdReply: {
         title: "𝐎𝐍𝐄 𝐏𝐈𝐄𝐂𝐄 🏴‍☠️ | 𝐊𝐢𝐧𝐠 𝐨𝐟 𝐭𝐡𝐞 𝐏𝐢𝐫𝐚𝐭𝐞𝐬",
         body: "𝙼𝚎𝚊𝚝 ~ ☆ 𝙰𝚍𝚟𝚎𝚗𝚝𝚞𝚛𝚎 (⁠｡⁠✧⁠ω⁠✧⁠｡⁠)",
+        thumbnailUrl: img,
         sourceUrl: '',
         mediaType: 1,
         renderLargerThumbnail: true
