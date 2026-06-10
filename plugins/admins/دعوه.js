@@ -7,7 +7,6 @@ const handler = async (m, { conn, text }) => {
     if (!m.isAdmin && !m.isOwner)
         return m.reply('🚫 هذا الأمر للأدمن فقط!');
 
-    // ─── حدد الشخص المستهدف ───
     let targetJid = null;
 
     if (m.mentionedJid?.length > 0) {
@@ -26,36 +25,46 @@ const handler = async (m, { conn, text }) => {
     }
 
     try {
-        // ─── جيب كود الدعوة ───
-        const inviteCode = await conn.groupInviteCode(chatId);
-        const groupMeta  = await conn.groupMetadata(chatId);
+        const groupMeta = await conn.groupMetadata(chatId);
 
-        // ─── ابعت الدعوة للشخص ───
-        await conn.sendMessage(targetJid, {
-            groupInviteMessage: {
-                inviteCode,
-                inviteExpiration: Math.floor(Date.now() / 1000) + 86400, // 24 ساعة
-                groupJid: chatId,
-                groupName: groupMeta.subject,
-                jpegThumbnail: null,
-                caption: `『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』`
-            }
-        });
+        // ─── أضف الشخص مباشرة ───
+        const result = await conn.groupParticipantsUpdate(chatId, [targetJid], 'add');
 
-        await m.reply(
-            `✅ *تم إرسال الدعوة!*\n\n` +
-            `👤 إلى: @${targetJid.split('@')[0]}\n` +
-            `📌 اسم الجروب: ${groupMeta.subject}\n` +
-            `⏳ صلاحية الدعوة: 24 ساعة`
-        );
+        const status = result?.[0]?.status;
+
+        if (status === '200' || status === 200) {
+            await m.reply(
+                `✅ *تم إضافة العضو!*\n\n` +
+                `👤 : @${targetJid.split('@')[0]}\n` +
+                `📌 اسم الجروب: ${groupMeta.subject}`
+            );
+        } else if (status === '403') {
+            // مش قادر يضيفه مباشرة — ابعت دعوة
+            const inviteCode = await conn.groupInviteCode(chatId);
+            await conn.sendMessage(targetJid, {
+                text:
+                    `『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』\n\n` +
+                    `📌 *${groupMeta.subject}*\n` +
+                    `🔗 https://chat.whatsapp.com/${inviteCode}\n\n` +
+                    `⏳ صلاحية الدعوة: 24 ساعة`
+            });
+            await m.reply(
+                `📨 *تم إرسال دعوة للعضو*\n` +
+                `👤 : @${targetJid.split('@')[0]}\n` +
+                `_(الشخص محتاج يوافق على الإضافة)_`
+            );
+        } else {
+            await m.reply(`❌ فشل الإضافة\nكود الحالة: ${status}`);
+        }
 
     } catch (e) {
         const errMsg = e?.message || '';
+        console.error('[invite]', e);
         if (errMsg.includes('not-authorized'))
-            return m.reply('❌ البوت مش أدمن — حطه أدمن عشان يقدر يبعت دعوات');
+            return m.reply('❌ البوت مش أدمن — حطه أدمن عشان يقدر يضيف');
         if (errMsg.includes('not found') || errMsg.includes('404'))
             return m.reply('❌ الرقم ده مش موجود على واتساب');
-        return m.reply(`❌ فشل إرسال الدعوة\n${errMsg}`);
+        return m.reply(`❌ فشل\n${errMsg}`);
     }
 };
 
