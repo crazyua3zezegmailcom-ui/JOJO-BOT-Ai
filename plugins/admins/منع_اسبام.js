@@ -51,10 +51,13 @@ const handler = async (m, { conn, command }) => {
   if (!m.isAdmin && !m.isOwner)
     return m.reply('🚫 هذا الأمر للأدمن فقط!');
 
+  const isActivate = /ضد_/i.test(command);
+  const isStop     = /[إا]يقاف_/i.test(command);
+
   // ─── تفعيل ───
-  if (command === 'ضد_سبام') {
+  if (isActivate) {
     if (spamGroups.has(chatId) && spamGroups.get(chatId).enabled)
-      return m.reply('✅ منع الاسبام مفعّل بالفعل!');
+      return m.reply('✅ منع الاسبام مفعّل بالفعل!\nللإيقاف: *.إيقاف_سبام*');
 
     spamGroups.set(chatId, { enabled: true, users: {} });
     return m.reply(
@@ -62,15 +65,15 @@ const handler = async (m, { conn, command }) => {
       `⚙️ الإعدادات:\n` +
       `▫️ تحذير عند: ${WARN_AT} رسائل / ${TIME_WINDOW / 1000} ثواني\n` +
       `▫️ طرد عند: ${MAX_MSG} رسائل / ${TIME_WINDOW / 1000} ثواني\n\n` +
-      `🤖 النظام يعمل تلقائياً — لا يحتاج أوامر إضافية\n` +
+      `🤖 النظام يعمل تلقائياً\n` +
       `📌 للإيقاف: *.إيقاف_سبام*`
     );
   }
 
   // ─── إيقاف ───
-  if (command === 'إيقاف_سبام') {
+  if (isStop) {
     if (!spamGroups.has(chatId) || !spamGroups.get(chatId).enabled)
-      return m.reply('⚠️ منع الاسبام غير مفعّل أصلاً.');
+      return m.reply('⚠️ منع الاسبام غير مفعّل أصلاً.\nللتفعيل: *.ضد_سبام*');
     spamGroups.delete(chatId);
     return m.reply('🔓 *تم إيقاف نظام منع الاسبام*');
   }
@@ -81,8 +84,8 @@ const handler = async (m, { conn, command }) => {
     `🚫 *حالة منع الاسبام*\n\n` +
     `${active ? '✅ مفعّل' : '❌ موقوف'}\n\n` +
     `📌 الأوامر:\n` +
-    `▫️ *.ضد_سبام* — تفعيل\n` +
-    `▫️ *.إيقاف_سبام* — إيقاف`
+    `▫️ *.ضد_سبام* أو *.ضد_اسبام* — تفعيل\n` +
+    `▫️ *.إيقاف_سبام* أو *.إيقاف_اسبام* — إيقاف`
   );
 };
 
@@ -149,7 +152,8 @@ handler.before = async (m, { conn }) => {
   }
 };
 
-handler.command  = ['ضد_سبام', 'إيقاف_سبام', 'حالة_سبام'];
+// يقبل كلا الإملاءين: سبام / اسبام
+handler.command  = /^(ضد_[اس]?سبام|إيقاف_[اس]?سبام|ايقاف_[اس]?سبام|حالة_[اس]?سبام)$/i;
 handler.usage    = ['ضد_سبام', 'إيقاف_سبام', 'حالة_سبام'];
 handler.category = 'admin';
 handler.group    = true;

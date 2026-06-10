@@ -15,17 +15,34 @@ let control = async (m, { command, text, conn, bot, participants }) => {
         };
 
         if (command === "ضيف") {
-            if (!text) return m.reply("❌ فين الرقم؟");
+            let target = null;
+
             if (m.quoted) {
-                await conn.groupParticipantsUpdate(m.chat, [m.quoted.sender], 'add');
-                return m.reply("*✅ تمت الإضافة*");
+                target = m.quoted.sender;
+            } else if (m.mentionedJid && m.mentionedJid.length > 0) {
+                target = m.mentionedJid[0];
+            } else if (text) {
+                // نظّف الرقم: اشيل +، مسافات، شرطات
+                const cleaned = text.replace(/[^0-9]/g, '');
+                if (!cleaned) return m.reply("❌ الرقم غلط — اكتب الأرقام بس بدون رموز");
+                target = cleaned + "@s.whatsapp.net";
             }
-            if (m.mentionedJid && m.mentionedJid.length > 0) {
-                await conn.groupParticipantsUpdate(m.chat, [m.mentionedJid[0]], 'add');
+
+            if (!target) return m.reply("❌ اكتب الرقم بعد الأمر أو منشن العضو أو ريبلاي");
+
+            try {
+                const results = await conn.groupParticipantsUpdate(m.chat, [target], 'add');
+                const status  = results?.[0]?.status?.toString() || '';
+
+                if (status === '200') return m.reply("*✅ تمت الإضافة*");
+                if (status === '403') return m.reply("❌ الشخص ده ما بيسمحش حد يضيفه — استخدم *.دعوه* بدل كده");
+                if (status === '408') return m.reply("❌ الرقم ده مش موجود على واتساب");
+                if (status === '409') return m.reply("❌ العضو ده موجود في الجروب بالفعل");
+                if (status === '500') return m.reply("❌ فشل — ممكن البوت مش أدمن أو الرقم غلط");
                 return m.reply("*✅ تمت الإضافة*");
+            } catch (e) {
+                return m.reply("❌ فشلت الإضافة — جرب *.دعوه " + (text || '') + "* بدل كده");
             }
-            await conn.groupParticipantsUpdate(m.chat, [text + "@s.whatsapp.net"], 'add');
-            return m.reply("*✅ تمت الإضافة*");
         }
         
         if (command === "انطر") {
