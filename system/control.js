@@ -24,48 +24,63 @@ const group = async (ctx, event, eventType) => {
     try {
         if (!event?.participants) return null;
 
-        // دعم JID و LID معاً في واتساب الجديد
-        const participants = event.participants
-            .map(p => p?.phoneNumber || p?.id || p?.jid)
-            .filter(Boolean);
-        const author = event.author;
-        let txt;
+        // لو الجروب مش في قاعدة البيانات أو noWelcome شغال، لا ترسل رسالة
+        if (global.db?.groups?.[event.chat]?.noWelcome === true) return 9999;
 
-        const users = participants.length 
-            ? participants.map(p => '@' + p.split('@')[0]).join(' و ') 
-            : '';
+        // دعم strings و objects و LID معاً
+        const participants = event.participants
+            .map(p => {
+                if (typeof p === 'string') return p;
+                return p?.phoneNumber || p?.id || p?.jid || null;
+            })
+            .filter(Boolean);
+
+        const author = event.author || null;
+
+        const users    = participants.length
+            ? participants.map(p => '@' + p.split('@')[0]).join(' و ')
+            : '؟';
         const authorTag = author ? '@' + author.split('@')[0] : '';
 
         const messages = {
-            add: `♡゙ مـنـور/ه ${users}${authorTag === users ? "" : `\n𝐛𝐲 ${authorTag}`}`,
-            remove: `${users} تم إزالته من الجروب${authorTag === users ? "" : `\n𝐛𝐲 ${authorTag}`}`,
-            promote: `♡゙ مـبـروك الادمـن ${users}\nby ${authorTag}`,
-            demote: `♡゙ بـقـيـت عـضـو خـلاص ${users}\nby ${authorTag}`
+            add:     `♡゙ مـنـور/ه ${users}${authorTag && authorTag !== users ? `\n𝐛𝐲 ${authorTag}` : ''}`,
+            remove:  `👋 ${users} تم إزالته من الجروب${authorTag && authorTag !== users ? `\n𝐛𝐲 ${authorTag}` : ''}`,
+            promote: `🎉 مـبـروك الادمـن ${users}${authorTag ? `\nby ${authorTag}` : ''}`,
+            demote:  `♡゙ بـقـيـت عـضـو خـلاص ${users}${authorTag ? `\nby ${authorTag}` : ''}`
         };
 
-        txt = messages[eventType];
+        const txt = messages[eventType];
         if (!txt) return null;
-        
-        if (global.db.groups[event.chat].noWelcome === true) return 9999;
 
-        const img = ["remove", "add"].includes(eventType) 
-            ? (event.userUrl || "https://files.catbox.moe/hm9iq4.jpg") 
-            : "https://files.catbox.moe/hm9iq4.jpg";
+        const mentions = [
+            ...(author ? [author] : []),
+            ...participants
+        ];
 
-        await ctx.sock.msgUrl(event.chat, txt, {
-            img,
-            title: ctx.config?.info.nameBot || "WhatsApp Bot",
-            body: "𝐴 𝑾𝒉𝒂𝒕𝒔𝑨𝒑𝒑 𝒃𝒐𝒕 𝒃𝒚 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕",
-            mentions: author ? [author, ...participants] : participants,
-            newsletter: {
-                name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
-                jid: '120363428186936884@newsletter'
-            },
-            big: ["remove", "add"].includes(eventType)
-        });
+        // أرسل الرسالة — حاول msgUrl أولاً وفي حالة الفشل ابعت نص عادي
+        try {
+            const img = ["remove", "add"].includes(eventType)
+                ? (event.userUrl || "https://files.catbox.moe/hm9iq4.jpg")
+                : "https://files.catbox.moe/hm9iq4.jpg";
+
+            await ctx.sock.msgUrl(event.chat, txt, {
+                img,
+                title: ctx.config?.info?.nameBot || "Gogo Bot",
+                body: "𝑾𝒉𝒂𝒕𝒔𝑨𝒑𝒑 𝒃𝒐𝒕 𝒃𝒚 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕",
+                mentions,
+                newsletter: {
+                    name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
+                    jid: '120363428186936884@newsletter'
+                },
+                big: ["remove", "add"].includes(eventType)
+            });
+        } catch {
+            // فشل msgUrl — ابعت نص عادي
+            await ctx.sock.sendMessage(event.chat, { text: txt, mentions });
+        }
 
     } catch (e) {
-        console.error(e);
+        console.error('[group event error]', e?.message || e);
     }
     return null;
 };
