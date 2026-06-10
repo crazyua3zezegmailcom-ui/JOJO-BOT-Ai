@@ -1,6 +1,7 @@
 import youtubedl from 'youtube-dl-exec';
 import fs from 'fs';
 import axios from 'axios';
+import { runConcurrent, showTyping } from '../../system/perf.js';
 
 const BOT_FOOTER = `✨🌌 ~ 『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』 ~ 🌌✨`;
 const CHANNEL_JID = '120363428186936884@newsletter';
@@ -73,7 +74,7 @@ async function getAudioBuffer(url) {
   }
 }
 
-const handler = async (m, { conn, text, command }) => {
+const handler = async (m, { conn, text, command, sender }) => {
 
   // ══════════════════════════════════════
   // ─── أمر التحميل لما يضغط الزر ───
@@ -88,7 +89,7 @@ const handler = async (m, { conn, text, command }) => {
      🎵  جـاري التحميل  🎵
 ╚━━━━━━━━━━━━━━━━╝
 
-⏬  يتم الآن تحميل الأغنية
+⬇️  يتم الآن تحميل الأغنية
 ⏳  الرجاء الانتظار لحظة...
 
 ━━━━━━━━━━━━━━━━━━
@@ -97,16 +98,10 @@ ${BOT_FOOTER}`,
       buttons: [
         {
           name: 'cta_url',
-          params: {
-            display_text: '📢 عرض القناة',
-            url: CHANNEL_URL,
-          },
+          params: { display_text: '📢 عرض القناة', url: CHANNEL_URL },
         },
       ],
-      newsletter: {
-        name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
-        jid: CHANNEL_JID,
-      },
+      newsletter: { name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』', jid: CHANNEL_JID },
       interactiveConfig: {
         buttons_limits: 10,
         button_title: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
@@ -114,27 +109,32 @@ ${BOT_FOOTER}`,
       },
     }, m);
 
-    const [info, audioBuffer] = await Promise.all([
-      fastVideoInfo(url),
-      getAudioBuffer(url),
-    ]);
+    runConcurrent(m.sender, m.chat, async () => {
+      await showTyping(conn, m.chat);
 
-    if (!audioBuffer) {
-      await m.react('❌');
-      return m.reply('❌ تعذّر تحميل الأغنية — جرّب لاحقاً');
-    }
+      const [info, audioBuffer] = await Promise.all([
+        fastVideoInfo(url),
+        getAudioBuffer(url),
+      ]);
 
-    try {
-      await conn.sendMessage(m.chat, {
-        audio: audioBuffer,
-        mimetype: 'audio/mpeg',
-        fileName: `${info.title}.mp3`,
-      }, { quoted: m });
-      await m.react('✅');
-    } catch {
-      await m.react('❌');
-      await m.reply('❌ تعذّر إرسال الملف — جرّب مرة ثانية');
-    }
+      if (!audioBuffer) {
+        await m.react('❌');
+        await m.reply('❌ تعذّر تحميل الأغنية — جرّب لاحقاً');
+        return;
+      }
+
+      try {
+        await conn.sendMessage(m.chat, {
+          audio: audioBuffer,
+          mimetype: 'audio/mpeg',
+          fileName: `${info.title}.mp3`,
+        }, { quoted: m });
+        await m.react('✅');
+      } catch {
+        await m.react('❌');
+        await m.reply('❌ تعذّر إرسال الملف — جرّب مرة ثانية');
+      }
+    }, conn);
 
     return;
   }
@@ -144,27 +144,28 @@ ${BOT_FOOTER}`,
   // ══════════════════════════════════════
   if (!text) return m.reply('*❲ ❤️ ❳ ~ اكتب اسم الأغنية أو رابط يوتيوب ~ ❲ 💙 ❳*');
 
+  // رد فوري
   await m.react('⏳');
+  await showTyping(conn, m.chat);
 
-  let url;
-  if (YT_URL_RE.test(text)) {
-    url = text.trim();
-  } else {
-    url = await fastSearch(text);
-  }
+  runConcurrent(m.sender, m.chat, async () => {
+    let url;
+    if (YT_URL_RE.test(text)) {
+      url = text.trim();
+    } else {
+      url = await fastSearch(text);
+    }
 
-  if (!url) {
-    await m.react('❌');
-    return m.reply('❌ تعذّر إيجاد الأغنية — تأكد من الاسم وحاول مرة ثانية');
-  }
+    if (!url) {
+      await m.react('❌');
+      return m.reply('❌ تعذّر إيجاد الأغنية — تأكد من الاسم وحاول مرة ثانية');
+    }
 
-  const info = await fastVideoInfo(url);
+    const info = await fastVideoInfo(url);
 
-  const thumbnail = info.thumbnail?.startsWith('http')
-    ? info.thumbnail
-    : DEFAULT_IMG;
+    const thumbnail = info.thumbnail?.startsWith('http') ? info.thumbnail : DEFAULT_IMG;
 
-  const foundCaption =
+    const foundCaption =
 `╔━━━━━━━━━━━━━━━━╗
   ✅  تم العثور على الأغنية
 ╚━━━━━━━━━━━━━━━━╝
@@ -178,39 +179,31 @@ ${BOT_FOOTER}`,
 ━━━━━━━━━━━━━━━━━━
 ${BOT_FOOTER}`;
 
-  await conn.sendButton(m.chat, {
-    imageUrl: thumbnail,
-    bodyText: foundCaption,
-    footerText: '🎵 يوتيوب | YouTube',
-    buttons: [
-      {
-        name: 'quick_reply',
-        params: {
-          display_text: '🎵  اضغط للصوت',
-          id: `.اغنيه_تحميل ${url}`,
+    await conn.sendButton(m.chat, {
+      imageUrl: thumbnail,
+      bodyText: foundCaption,
+      footerText: '🎵 يوتيوب | YouTube',
+      buttons: [
+        {
+          name: 'quick_reply',
+          params: { display_text: '🎵  اضغط للصوت', id: `.اغنيه_تحميل ${url}` },
         },
-      },
-      {
-        name: 'cta_url',
-        params: {
-          display_text: '📢  عرض القناة',
-          url: CHANNEL_URL,
+        {
+          name: 'cta_url',
+          params: { display_text: '📢  عرض القناة', url: CHANNEL_URL },
         },
+      ],
+      mentions: [m.sender],
+      newsletter: { name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』', jid: CHANNEL_JID },
+      interactiveConfig: {
+        buttons_limits: 10,
+        button_title: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
+        canonical_url: CHANNEL_URL,
       },
-    ],
-    mentions: [m.sender],
-    newsletter: {
-      name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
-      jid: CHANNEL_JID,
-    },
-    interactiveConfig: {
-      buttons_limits: 10,
-      button_title: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
-      canonical_url: CHANNEL_URL,
-    },
-  }, m);
+    }, m);
 
-  await m.react('✅');
+    await m.react('✅');
+  }, conn);
 };
 
 handler.usage    = ['اغنيه'];

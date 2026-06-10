@@ -1,4 +1,8 @@
+import { showTyping } from '../../system/perf.js';
+
 async function handler(m, { conn, bot }) {
+    await showTyping(conn, m.chat);
+
     const user = global.db?.users[m.sender] || {};
     const xp = user.xp || 0;
     const level = user.level || 0;
@@ -9,20 +13,21 @@ async function handler(m, { conn, bot }) {
     const premium = user.premium || false;
     const name = user.name || 'غير مسجل';
     const age = user.age || 'غير مسجل';
-    
+
     const pushName = m.pushName || m.sender.split('@')[0];
     const phoneNumber = m.sender.split('@')[0];
-    
+
     const nextLevelXp = (() => {
         const levels = [100, 250, 500, 800, 1200, 1700, 2300, 3000, 3800, 4700, 5700, 6800, 8000, 9300, 10700, 12200, 13800, 15500, 17500, 20000];
         return levels[level] || levels[levels.length - 1];
     })();
-    
+
     const xpProgress = Math.min(100, Math.floor((xp / nextLevelXp) * 100));
     const status = banned ? '🚫 مـحـظـور' : (premium ? '👑 بـريـمـيـوم' : '🟢 عـادي');
-    
-    const profilePic = await conn.profilePictureUrl(m.sender, 'image').catch(() => 'https://i.postimg.cc/VLdc7Tsp/IMG-20260511-WA0360.jpg');
-    
+
+    const profilePic = await conn.profilePictureUrl(m.sender, 'image')
+        .catch(() => 'https://i.postimg.cc/VLdc7Tsp/IMG-20260511-WA0360.jpg');
+
     const msg = `╭─┈─┈─┈─⟞🎪⟝─┈─┈─┈─╮
 ┃ *🎭 بـروفـايـل ${pushName} 🎪*
 ╰─┈─┈─┈─⟞🎭⟝─┈─┈─┈─╯
@@ -42,7 +47,7 @@ async function handler(m, { conn, bot }) {
 ╭─┈─┈─┈─⟞🎭⟝─┈─┈─┈─╮
 ┃ *اسـتـمـر فـي الـتـفـاعـل لـتـرفـع مـسـتـواك* 🚀
 ╰─┈─┈─┈─⟞🤡⟝─┈─┈─┈─╯`;
-    
+
     const cfg = bot.config.info;
     await conn.sendMessage(m.chat, {
         image: { url: profilePic },

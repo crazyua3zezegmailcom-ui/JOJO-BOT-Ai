@@ -1,9 +1,9 @@
-import axios from 'axios';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
+import { fetchWithTimeout, showTyping } from '../system/perf.js';
 
 const execAsync = promisify(exec);
 
@@ -36,7 +36,7 @@ const NEWSLETTER = {
 
 const CHANNEL_URL = 'https://whatsapp.com/channel/0029Vb82IJr3gvWS72JEDB1e';
 const DEV_NAME    = '𝐶𝑟𝑎𝑧𝑦';
-const DEV_NUM1    = '15877004085'; 
+const DEV_NUM1    = '15877004085';
 const DEV_NUM2    = '201214057674';
 const DEV_IMG     = 'https://i.postimg.cc/2yXd03jy/IMG-20260511-WA0366.jpg';
 const VOICE_URL   = 'https://media1.vocaroo.com/mp3/1m9sSiyVOX0B';
@@ -115,34 +115,41 @@ https://chat.whatsapp.com/CDa5fFK3mLhHJYMLxHBQey?s=cl&p=a&mlu=1
 ·͙⁺˚*•̩̩͙✩•̩̩͙*˚⁺‧͙·͙⁺˚*•̩̩͙✩•̩̩͙*˚⁺‧͙
 *•.¸♡¸.•**•.¸♡¸.•**•.¸♡¸.•**•.¸♡¸.•*`.trim();
 
-        await conn.sendMessage(m.chat, {
-            image: { url: DEV_IMG },
-            caption,
-            mentions: [`${DEV_NUM1}@s.whatsapp.net`, `${DEV_NUM2}@s.whatsapp.net`]
-        }, { quoted: m });
+        await showTyping(conn, m.chat);
 
-        await conn.sendMessage(m.chat, {
-            contacts: {
-                displayName: DEV_NAME,
-                contacts: [{ vcard: vcard1 }, { vcard: vcard2 }]
-            }
-        }, { quoted: m });
+        // إرسال الصورة والكروت بالتوازي
+        await Promise.all([
+            conn.sendMessage(m.chat, {
+                image: { url: DEV_IMG },
+                caption,
+                mentions: [`${DEV_NUM1}@s.whatsapp.net`, `${DEV_NUM2}@s.whatsapp.net`]
+            }, { quoted: m }),
+            conn.sendMessage(m.chat, {
+                contacts: {
+                    displayName: DEV_NAME,
+                    contacts: [{ vcard: vcard1 }, { vcard: vcard2 }]
+                }
+            }, { quoted: m })
+        ]);
 
         try {
-            const voiceRes = await axios.get(VOICE_URL, {
-                responseType: 'arraybuffer',
-                timeout: 20000,
+            const voiceRes = await fetchWithTimeout(VOICE_URL, 20_000, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                     'Referer': 'https://vocaroo.com/'
                 }
             });
-            const oggBuffer = await convertToOggOpus(Buffer.from(voiceRes.data));
+            let mp3Buffer = Buffer.from(await voiceRes.arrayBuffer());
+            let oggBuffer = await convertToOggOpus(mp3Buffer);
+            mp3Buffer = null;
+
             await conn.sendMessage(m.chat, {
                 audio: oggBuffer,
                 mimetype: 'audio/ogg; codecs=opus',
                 ptt: true
             }, { quoted: m });
+
+            oggBuffer = null;
         } catch (e) {
             console.error('Voice send error:', e.message);
         }

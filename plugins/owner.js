@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
+import { showTyping, fetchWithTimeout } from '../system/perf.js';
 
 const execAsync = promisify(exec);
 
@@ -65,35 +66,41 @@ https://chat.whatsapp.com/CDa5fFK3mLhHJYMLxHBQey?s=cl&p=a&mlu=1
 
 ${FOOTER}`;
 
-  await conn.sendMessage(m.chat, {
-    image: { url: img },
-    caption: caption,
-    mentions: [`${num1}@s.whatsapp.net`, `${num2}@s.whatsapp.net`]
-  }, { quoted: m });
+  await showTyping(conn, m.chat);
 
-  await conn.sendMessage(m.chat, {
-    contacts: {
-      displayName: devName,
-      contacts: [{ vcard: vcard1 }, { vcard: vcard2 }]
-    }
-  }, { quoted: m });
+  // إرسال الصورة والكروت في نفس الوقت
+  await Promise.all([
+    conn.sendMessage(m.chat, {
+      image: { url: img },
+      caption: caption,
+      mentions: [`${num1}@s.whatsapp.net`, `${num2}@s.whatsapp.net`]
+    }, { quoted: m }),
+    conn.sendMessage(m.chat, {
+      contacts: {
+        displayName: devName,
+        contacts: [{ vcard: vcard1 }, { vcard: vcard2 }]
+      }
+    }, { quoted: m })
+  ]);
 
   try {
-    const voiceRes = await axios.get(voiceUrl, {
-      responseType: 'arraybuffer',
-      timeout: 20000,
+    const voiceRes = await fetchWithTimeout(voiceUrl, 20_000, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://vocaroo.com/'
       }
     });
-    const mp3Buffer = Buffer.from(voiceRes.data);
-    const oggBuffer = await convertToOggOpus(mp3Buffer);
+    let mp3Buffer = Buffer.from(await voiceRes.arrayBuffer());
+    let oggBuffer = await convertToOggOpus(mp3Buffer);
+    mp3Buffer = null;
+
     await conn.sendMessage(m.chat, {
       audio: oggBuffer,
       mimetype: 'audio/ogg; codecs=opus',
       ptt: true
     }, { quoted: m });
+
+    oggBuffer = null;
   } catch (e) {
     console.error('Voice send error:', e.message);
   }
