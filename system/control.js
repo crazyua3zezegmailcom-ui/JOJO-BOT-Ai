@@ -59,9 +59,7 @@ const group = async (ctx, event, eventType) => {
 
         // أرسل كصورة مع النص — بدون newsletter عشان النص يظهر لكل الأعضاء
         try {
-            const imgUrl = ["remove", "add"].includes(eventType)
-                ? (event.userUrl || "https://files.catbox.moe/hm9iq4.jpg")
-                : "https://files.catbox.moe/hm9iq4.jpg";
+            const imgUrl = "https://i.postimg.cc/KjnFN3Dn/IMG-20260511-WA0363.jpg";
 
             await ctx.sock.sendMessage(event.chat, {
                 image: { url: imgUrl },
