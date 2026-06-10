@@ -1816,7 +1816,8 @@ let handler = async (m, { conn }) => {
     return conn.sendMessage(chatId, { text: '🚫 هذه اللعبة للجروبات فقط!' });
   }
 
-  const isStartCommand = /^العباقره$/i.test(body);
+  const cmdBody = body.replace(/^[.\/!]/, '').trim();
+  const isStartCommand = /^(العباقره|العباقرة|عباقره|عباقرة)$/i.test(cmdBody);
 
   // ─── أمر البدء ───
   if (isStartCommand) {
@@ -1841,7 +1842,7 @@ let handler = async (m, { conn }) => {
   }
 
   // ─── أمر الإيقاف ───
-  if (/^إيقاف العباقره?$/i.test(body)) {
+  if (/^إيقاف العباقره?$/i.test(cmdBody)) {
     if (games.has(chatId)) {
       const g = games.get(chatId);
       clearTimer(g);

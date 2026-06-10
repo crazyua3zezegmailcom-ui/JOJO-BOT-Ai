@@ -2,17 +2,18 @@ const handler = async (m, { conn, args }) => {
   const chat = m.chat;
 
   // ─── تأكد إن البوت مشرف ───
-  const botId = conn.user.id.split(':')[0] + '@s.whatsapp.net';
+  const botRaw = conn.user.id.split(':')[0].split('@')[0];
   const groupMeta = await conn.groupMetadata(chat);
   const participants = groupMeta.participants;
 
-  const botParticipant = participants.find(p => p.id === botId);
+  const botParticipant = participants.find(p => p.id.split(':')[0].split('@')[0] === botRaw);
   if (!botParticipant || !['admin', 'superadmin'].includes(botParticipant.admin)) {
     return m.reply('❌ البوت مش مشرف — خليه مشرف الأول');
   }
 
   // ─── تأكد إن اللي بعت الأمر أدمن ───
-  const senderParticipant = participants.find(p => p.id === m.sender);
+  const senderRaw = m.sender.split(':')[0].split('@')[0];
+  const senderParticipant = participants.find(p => p.id.split(':')[0].split('@')[0] === senderRaw);
   if (!senderParticipant || !['admin', 'superadmin'].includes(senderParticipant.admin)) {
     return m.reply('❌ الأمر ده للأدمن بس');
   }

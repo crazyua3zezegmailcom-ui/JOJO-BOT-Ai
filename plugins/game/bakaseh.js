@@ -318,7 +318,7 @@ let handler = async (m, { conn }) => {
   }
 
   // ─── أمر البدء ───
-  if (/^\.بكاسه$/i.test(body)) {
+  if (/^[.\/!]?بكاسه$/i.test(body)) {
 
     if (bakaseh_games.has(chatId)) {
       return conn.sendMessage(chatId, {
@@ -359,7 +359,7 @@ let handler = async (m, { conn }) => {
   }
 
   // ─── أمر الإيقاف ───
-  if (/^\.إيقاف بكاسه$/i.test(body)) {
+  if (/^[.\/!]?إيقاف بكاسه$/i.test(body)) {
     if (bakaseh_games.has(chatId)) {
       const g = bakaseh_games.get(chatId);
       clearAllTimers(g);
@@ -601,6 +601,6 @@ async function startGame(conn, chatId, game) {
 }
 
 // ─── أمر البدء ───
-handler.command = /^\.بكاسه$/i;
+handler.command = /^بكاسه$/i;
 
 export default handler;
