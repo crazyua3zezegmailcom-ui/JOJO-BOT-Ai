@@ -57,25 +57,19 @@ const group = async (ctx, event, eventType) => {
             ...participants
         ];
 
-        // أرسل الرسالة — حاول msgUrl أولاً وفي حالة الفشل ابعت نص عادي
+        // أرسل كصورة مع النص — بدون newsletter عشان النص يظهر لكل الأعضاء
         try {
-            const img = ["remove", "add"].includes(eventType)
+            const imgUrl = ["remove", "add"].includes(eventType)
                 ? (event.userUrl || "https://files.catbox.moe/hm9iq4.jpg")
                 : "https://files.catbox.moe/hm9iq4.jpg";
 
-            await ctx.sock.msgUrl(event.chat, txt, {
-                img,
-                title: ctx.config?.info?.nameBot || "Gogo Bot",
-                body: "𝑾𝒉𝒂𝒕𝒔𝑨𝒑𝒑 𝒃𝒐𝒕 𝒃𝒚 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕",
-                mentions,
-                newsletter: {
-                    name: '『 𝑮𝒐𝒈𝒐 𖠌 𝑩𝒐𝒕 』',
-                    jid: '120363428186936884@newsletter'
-                },
-                big: ["remove", "add"].includes(eventType)
+            await ctx.sock.sendMessage(event.chat, {
+                image: { url: imgUrl },
+                caption: txt,
+                mentions
             });
         } catch {
-            // فشل msgUrl — ابعت نص عادي
+            // فشل تحميل الصورة — ابعت نص فقط
             await ctx.sock.sendMessage(event.chat, { text: txt, mentions });
         }
 
