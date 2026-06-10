@@ -600,6 +600,123 @@ async function startGame(conn, chatId, game) {
   }, DISCUSSION_TIME - 60000);
 }
 
+// ─── handler.before لاستقبال كل رسائل اللعبة ───
+handler.before = async (m, { conn }) => {
+  const chatId   = m.chat;
+  const senderId = m.sender;
+  const body     = (m.body || '').trim();
+
+  if (!chatId.endsWith('@g.us')) return;
+  if (!bakaseh_games.has(chatId)) return;
+
+  const game = bakaseh_games.get(chatId);
+
+  // إيقاف اللعبة
+  if (/^[.\/!]?إيقاف بكاسه$/i.test(body)) {
+    clearAllTimers(game);
+    bakaseh_games.delete(chatId);
+    await conn.sendMessage(chatId, { text: '🛑 *تم إيقاف لعبة بكاسه*' });
+    return true;
+  }
+
+  // مرحلة الانضمام
+  if (game.phase === 'joining' && /^انضمام$/i.test(body)) {
+    if (game.players.includes(senderId)) {
+      await conn.sendMessage(chatId, {
+        text: `⚠️ @${senderId.split('@')[0]} أنت مسجل بالفعل!`,
+        mentions: [senderId]
+      });
+      return true;
+    }
+    if (game.players.length >= MAX_PLAYERS) {
+      await conn.sendMessage(chatId, { text: '🚫 الغرفة ممتلئة!' });
+      return true;
+    }
+    game.players.push(senderId);
+    const count = game.players.length;
+    await conn.sendMessage(chatId, {
+      text: `✅ @${senderId.split('@')[0]} انضم!\n👥 اللاعبون الآن: ${count}/${MAX_PLAYERS}`,
+      mentions: [senderId]
+    });
+    if (count === MAX_PLAYERS) {
+      clearAllTimers(game);
+      await startGame(conn, chatId, game);
+    }
+    return true;
+  }
+
+  // مرحلة التصويت
+  if (game.phase === 'voting') {
+    if (!game.players.includes(senderId) || game.votes[senderId]) return;
+
+    let targetJid = null;
+    const numMatch = body.match(/^(\d+)$/);
+    if (numMatch) {
+      const idx = parseInt(numMatch[1]) - 1;
+      if (idx >= 0 && idx < game.players.length) targetJid = game.players[idx];
+    }
+    if (!targetJid && m.mentionedJid?.length > 0) {
+      const mentioned = m.mentionedJid[0];
+      if (game.players.includes(mentioned)) targetJid = mentioned;
+    }
+    if (!targetJid) return;
+
+    if (targetJid === senderId) {
+      await conn.sendMessage(chatId, {
+        text: `😅 @${senderId.split('@')[0]} ما تقدرش تصوّت على نفسك!`,
+        mentions: [senderId]
+      });
+      return true;
+    }
+    game.votes[senderId] = targetJid;
+    const votedCount  = Object.keys(game.votes).length;
+    const totalVoters = game.players.length;
+    await conn.sendMessage(chatId, {
+      text: `🗳 @${senderId.split('@')[0]} صوّت ضد @${targetJid.split('@')[0]}\n📊 الأصوات: ${votedCount}/${totalVoters}`,
+      mentions: [senderId, targetJid]
+    });
+    if (votedCount >= totalVoters) {
+      clearAllTimers(game);
+      await revealResult(conn, chatId, game);
+    }
+    return true;
+  }
+
+  // مرحلة التخمين الأخير
+  if (game.phase === 'final_guess' && senderId === game.barra) {
+    const numMatch = body.match(/^([1-4])$/);
+    if (!numMatch) return;
+    const chosen = game.guessChoices[parseInt(numMatch[1]) - 1];
+    clearAllTimers(game);
+    if (chosen === game.secretWord) {
+      await conn.sendMessage(chatId, {
+        text: `😱 *اللاعب البرا عرف الكلمة!*\n\n🏆 *فاز اللاعب البرا!*\n@${game.barra.split('@')[0]} اختار: *${chosen}* ✅`,
+        mentions: [game.barra]
+      });
+      await endGame(conn, chatId, game, 'barra_guessed');
+    } else {
+      await conn.sendMessage(chatId, {
+        text: `❌ *اللاعب البرا فشل في التخمين!*\n\nاختار: *${chosen}* ❌\n\n🏆 *فازت المجموعة!*\n📌 *الكلمة الصحيحة كانت:* ${game.secretWord}`,
+        mentions: [game.barra]
+      });
+      await endGame(conn, chatId, game, 'group_wins');
+    }
+    return true;
+  }
+
+  // مرحلة النقاش — مراقبة الكلمة السرية
+  if (game.phase === 'playing' && game.secretWord && game.players.includes(senderId)) {
+    if (body.toLowerCase().includes(game.secretWord.toLowerCase())) {
+      try {
+        await conn.sendMessage(chatId, {
+          text: `🚫 *ممنوع كشف الكلمة!*\n@${senderId.split('@')[0]}`,
+          mentions: [senderId]
+        });
+      } catch {}
+    }
+  }
+};
+
 // ─── أمر البدء ───
 handler.command = /^بكاسه$/i;
 

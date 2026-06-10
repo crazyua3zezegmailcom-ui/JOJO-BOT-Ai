@@ -1,19 +1,11 @@
-const handler = async (m, { conn, args }) => {
+const handler = async (m, { conn }) => {
   const chat = m.chat;
 
   const groupMeta = await conn.groupMetadata(chat);
   const participants = groupMeta.participants;
 
-  // ─── تأكد إن اللي بعت الأمر أدمن ───
-  const senderRaw = m.sender.split(':')[0].split('@')[0];
-  const senderParticipant = participants.find(p => p.id.split(':')[0].split('@')[0] === senderRaw);
-  if (!senderParticipant || !['admin', 'superadmin'].includes(senderParticipant.admin)) {
-    return m.reply('❌ الأمر ده للأدمن بس');
-  }
-
   // ─── جيب العضو عن طريق المنشن أو الريبلاي ───
   let mentioned = null;
-
   if (m.mentionedJid?.[0]) {
     mentioned = m.mentionedJid[0];
   } else if (m.quoted) {
@@ -26,7 +18,9 @@ const handler = async (m, { conn, args }) => {
 
   // ─── تأكد إن العضو موجود في المجموعة ───
   const mentionedRaw = mentioned.split(':')[0].split('@')[0];
-  const targetParticipant = participants.find(p => p.id.split(':')[0].split('@')[0] === mentionedRaw);
+  const targetParticipant = participants.find(p =>
+    p.id.split(':')[0].split('@')[0] === mentionedRaw
+  );
   if (!targetParticipant) {
     return m.reply('❌ العضو ده مش في المجموعة');
   }
@@ -46,10 +40,7 @@ const handler = async (m, { conn, args }) => {
   ];
 
   for (const msg of messages) {
-    await conn.sendMessage(chat, {
-      text: msg,
-      mentions: [mentioned],
-    });
+    await conn.sendMessage(chat, { text: msg, mentions: [mentioned] });
     await new Promise(r => setTimeout(r, 300));
   }
 
@@ -60,15 +51,14 @@ const handler = async (m, { conn, args }) => {
     return m.reply('❌ تعذّر طرد العضو — تأكد إن البوت مشرف');
   }
 
-  // ─── رسالة التأكيد ───
-  await conn.sendMessage(chat, {
-    text: '*_تراراااا ✨_*',
-  });
+  await conn.sendMessage(chat, { text: '*_تراراااا ✨_*' });
 };
 
 handler.command  = ['سحر'];
 handler.usage    = ['سحر'];
 handler.category = 'admin';
 handler.group    = true;
+handler.admin    = true;
+handler.botAdmin = true;
 
 export default handler;

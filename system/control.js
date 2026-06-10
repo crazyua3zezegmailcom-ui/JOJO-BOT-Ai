@@ -24,14 +24,17 @@ const group = async (ctx, event, eventType) => {
     try {
         if (!event?.participants) return null;
 
-        const participants = event.participants.filter(p => p?.phoneNumber).map(p => p.phoneNumber);
+        // دعم JID و LID معاً في واتساب الجديد
+        const participants = event.participants
+            .map(p => p?.phoneNumber || p?.id || p?.jid)
+            .filter(Boolean);
         const author = event.author;
         let txt;
 
         const users = participants.length 
-            ? participants.map(p => '@' + p.split('@')[0]).join(' and ') 
-            : 'No users';
-        const authorTag = author ? '@' + author.split('@')[0] : 'Unknown';
+            ? participants.map(p => '@' + p.split('@')[0]).join(' و ') 
+            : '';
+        const authorTag = author ? '@' + author.split('@')[0] : '';
 
         const messages = {
             add: `♡゙ مـنـور/ه ${users}${authorTag === users ? "" : `\n𝐛𝐲 ${authorTag}`}`,
